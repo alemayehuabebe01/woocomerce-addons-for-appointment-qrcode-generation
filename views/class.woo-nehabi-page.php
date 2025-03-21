@@ -9,148 +9,164 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
             add_action('wp_ajax_send_qr_code', array($this, 'send_qr_code'));
             add_action('wp_ajax_download_qr_code', array($this, 'download_qr_code'));
             add_action('wp_ajax_update_appointment', array($this, 'update_appointment'));
+            add_action('wp_ajax_delete_appointment', array($this, 'delete_appointment'));
         }
 
-             public function add_menu_page()
-            {
-                add_submenu_page(
-                    'woocommerce',
-                    'Appointments',
-                    'Appointments',
-                    'manage_options',
-                    'woo-nehabi-appointments',
-                    array($this, 'render_admin_page')
-                );
-            }
+        public function add_menu_page()
+        {
+            add_submenu_page(
+                'woocommerce',
+                'Appointments',
+                'Appointments',
+                'manage_options',
+                'woo-nehabi-appointments',
+                array($this, 'render_admin_page')
+            );
+        }
 
-    
-            public function render_admin_page()
-            {
-                global $wpdb;
+        public function render_admin_page()
+        {
+            global $wpdb;
+
             
-                // Pagination
-                $appointments_per_page = 5; // Adjust the number of appointments per page
-                $current_page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
-                $offset = ($current_page - 1) * $appointments_per_page;
-            
-                // Fetch appointments with pagination
-                $appointments = $wpdb->get_results(
-                    $wpdb->prepare("SELECT * FROM {$wpdb->prefix}appointments LIMIT %d OFFSET %d", $appointments_per_page, $offset)
-                );
-            
-                // Get the total number of appointments
-                $total_appointments = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}appointments");
-            
-                // Calculate total pages
-                $total_pages = ceil($total_appointments / $appointments_per_page);
-            
-                wp_enqueue_style('bootstrap-css');
-                wp_enqueue_script('bootstrap-js');
-                wp_enqueue_style('font-awesome');
-                
-                $completed_orders = wc_get_orders(array(
-                    'status' => 'completed',
-                    'limit' => -1, 
-                ));
-            
-                ?>
-                <div class="container-fluid">
-                    <br>
-                    <header>
-                        <h2 class="bg-white">Nehabi Order - Appointments</h2>
-                    </header>
-                    <form id="appointment-form">
-                        <div class="form-group row">
-                            <div class="col-md-4">
-                                <label for="customer">Select Customer</label>
-                                <select id="customer" class="form-control" required>
-                                    <option value="">Select Customer</option>
-                                    <?php foreach ($completed_orders as $order) : ?>
-                                        <option value="<?php echo esc_attr($order->get_id()); ?>" data-name="<?php echo esc_attr($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()); ?>" data-email="<?php echo esc_attr($order->get_billing_email()); ?>">
-                                            <?php echo esc_html($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()); ?> - <?php echo esc_html($order->get_billing_email()); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="appointment_date">Appointment Date</label>
-                                <input type="date" id="appointment_date" class="form-control" required />
-                            </div>
-            
-                            <div class="col-md-4 text-center">
-                                <button type="submit" class="btn btn-primary" style="margin-top: 30px;">
-                                    <i class="fas fa-qrcode"></i> Generate QR
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-            
-                    <!-- Appointment Table -->
-                    <div id="appointment-table" class="table-responsive mt-4">
-                        <table class="table table-bordered table-hover table-striped">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Customer Name</th>
-                                    <th>Email</th>
-                                    <th>Appointment Date</th>
-                                    <th>QR Code</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($appointments as $appointment) : ?>
-                                    <tr id="appointment_<?php echo $appointment->customer_id; ?>">
-                                        <td><?php echo $appointment->customer_id; ?></td>
-                                        <td><?php echo esc_html($appointment->customer_name); ?></td>
-                                        <td><?php echo esc_html($appointment->customer_email); ?></td>
-                                        <td id="appointment-date-<?php echo $appointment->customer_id; ?>"><?php 
-                                            echo esc_html(date_i18n('l, F j, Y', strtotime($appointment->appointment_date))); 
-                                            ?></td>
-                                        <td><img src="<?php echo esc_url($appointment->qr_code_url); ?>" alt="QR Code" style="width: 50px;"></td>
-                                        <td>
-                                            <button class="btn btn-success send-qr" data-id="<?php echo $appointment->customer_id; ?>" data-name="<?php echo esc_attr($appointment->customer_name); ?>" data-email="<?php echo esc_attr($appointment->customer_email); ?>" data-qr="<?php echo esc_url($appointment->qr_code_url); ?>">
-                                                <i class="fas fa-paper-plane"></i>  
-                                            </button>
-            
-                                            <button class="btn btn-info download-qr" data-id="<?php echo $appointment->customer_id; ?>" data-qr="<?php echo esc_url($appointment->qr_code_url); ?>">
-                                                <i class="fas fa-download"></i>  
-                                            </button>
-            
-                                            <button class="btn btn-warning update-appointment" data-id="<?php echo $appointment->customer_id; ?>" data-name="<?php echo esc_attr($appointment->customer_name); ?>" data-email="<?php echo esc_attr($appointment->customer_email); ?>" data-qr="<?php echo esc_url($appointment->qr_code_url); ?>" data-date="<?php echo esc_attr($appointment->appointment_date); ?>">
-                                                <i class="fas fa-edit"></i>  
-                                            </button>
-                                        </td>
-                                    </tr>
+            $appointments = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}appointments");
+
+            wp_enqueue_style('datatables-css');
+            wp_enqueue_script('datatables-js');
+            wp_enqueue_style('bootstrap-css');
+            wp_enqueue_script('bootstrap-js');
+            wp_enqueue_style('font-awesome');
+            wp_enqueue_script( 'jszip');
+            wp_enqueue_script( 'pdfmake');
+            wp_enqueue_script( 'vfs_fonts');
+
+            // Enqueue a custom JS file to initialize DataTables (optional)
+
+            // Fetch completed WooCommerce orders
+            $completed_orders = wc_get_orders(array(
+                'status' => 'completed',
+                'limit' => -1,
+            ));
+
+            ?>
+            <div class="container-fluid">
+                <br>
+                <header>
+                    <h2 class="bg-white">Nehabi Order - Appointments</h2>
+                </header>
+                <form id="appointment-form">
+                    <div class="form-group row">
+                        <div class="col-md-4">
+                            <label for="customer">Select Customer</label>
+                            <select id="customer" class="form-control" required>
+                                <option value="">Select Customer</option>
+                                <?php foreach ($completed_orders as $order) : ?>
+                                    <option value="<?php echo esc_attr($order->get_id()); ?>" data-name="<?php echo esc_attr($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()); ?>" data-email="<?php echo esc_attr($order->get_billing_email()); ?>">
+                                        <?php echo esc_html($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()); ?> - <?php echo esc_html($order->get_billing_email()); ?>
+                                    </option>
                                 <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="appointment_date">Appointment Date</label>
+                            <input type="date" id="appointment_date" class="form-control" required />
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <button type="submit" class="btn btn-primary" style="margin-top: 30px;">
+                                <i class="fas fa-qrcode"></i> Generate QR
+                            </button>
+                        </div>
                     </div>
-            
-                    <!-- Pagination -->
-                    <div class="pagination-container text-center">
-                        <ul class="pagination">
-                            <?php if ($current_page > 1) : ?>
-                                <li class="page-item"><a class="page-link" href="?page=1&paged=1">&laquo; First</a></li>
-                                <li class="page-item"><a class="page-link" href="?paged=<?php echo $current_page - 1; ?>">Previous</a></li>
-                            <?php endif; ?>
-            
-                            <?php for ($i = 1; $i <= $total_pages; $i++) : ?>
-                                <li class="page-item <?php echo ($i == $current_page) ? 'active' : ''; ?>">
-                                    <a class="page-link" href="?paged=<?php echo $i; ?>"><?php echo $i; ?></a>
-                                </li>
-                            <?php endfor; ?>
-            
-                            <?php if ($current_page < $total_pages) : ?>
-                                <li class="page-item"><a class="page-link" href="?paged=<?php echo $current_page + 1; ?>">Next</a></li>
-                                <li class="page-item"><a class="page-link" href="?paged=<?php echo $total_pages; ?>">Last &raquo;</a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </div>
+                </form>
+
+                <!-- Appointment Table -->
+                <div class="table-responsive mt-4">
+                    <table id="appointment-table" class="table table-bordered table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer Name</th>
+                                <th>Email</th>
+                                <th>Appointment Date</th>
+                                <th>QR Code</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($appointments as $appointment) : ?>
+                                <tr id="appointment_<?php echo $appointment->customer_id; ?>">
+                                    <td><?php echo $appointment->customer_id; ?></td>
+                                    <td><?php echo esc_html($appointment->customer_name); ?></td>
+                                    <td><?php echo esc_html($appointment->customer_email); ?></td>
+                                    <td id="appointment-date-<?php echo $appointment->customer_id; ?>"><?php 
+                                        echo esc_html(date_i18n('l, F j, Y', strtotime($appointment->appointment_date))); 
+                                    ?></td>
+                                    <td><img src="<?php echo esc_url($appointment->qr_code_url); ?>" alt="QR Code" style="width: 50px;"></td>
+                                    <td>
+                                    <button class="btn btn-success send-qr" 
+                                            data-id="<?php echo $appointment->customer_id; ?>" 
+                                            data-name="<?php echo esc_attr($appointment->customer_name); ?>" 
+                                            data-email="<?php echo esc_attr($appointment->customer_email); ?>" 
+                                            data-qr="<?php echo esc_url($appointment->qr_code_url); ?>" 
+                                            title="Send QR Code">
+                                            <i class="fas fa-envelope"></i>   
+                                    </button>
+
+                                    <button class="btn btn-info download-qr" 
+                                            data-id="<?php echo $appointment->customer_id; ?>" 
+                                            data-qr="<?php echo esc_url($appointment->qr_code_url); ?>" 
+                                            title="Download QR Code">
+                                        <i class="fas fa-download"></i>  
+                                    </button>
+
+                                    <button class="btn btn-warning update-appointment" 
+                                            data-id="<?php echo $appointment->customer_id; ?>" 
+                                            data-name="<?php echo esc_attr($appointment->customer_name); ?>" 
+                                            data-email="<?php echo esc_attr($appointment->customer_email); ?>" 
+                                            data-qr="<?php echo esc_url($appointment->qr_code_url); ?>" 
+                                            data-date="<?php echo esc_attr($appointment->appointment_date); ?>" 
+                                            title="Update Appointment">
+                                        <i class="fas fa-edit"></i>  
+                                    </button>
+
+                                    <button class="btn btn-danger delete-appointment" 
+                                            data-id="<?php echo $appointment->customer_id; ?>" 
+                                            title="Delete Appointment">
+                                        <i class="fas fa-trash-alt"></i>  
+                                    </button>
+
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
+            </div>
 
             <script>
                 jQuery(document).ready(function($) {
+                    // Initialize DataTables
+                    $('#appointment-table').DataTable({
+                        "paging": true,
+                        "lengthChange": true,
+                        "searching": true,
+                        "ordering": true,
+                        "info": true,
+                        "autoWidth": false,
+                        "responsive": true,
+                        "pageLength": 5,            
+                        "lengthMenu": [ [5, 10, 25,50, -1], [5,10, 25, 50, "All"] ], 
+                        "language": {                
+                            "search": "Filter Customers:",    
+                            "lengthMenu": "Show _MENU_ records per page",   
+                            "info": "Showing _START_ to _END_ of _TOTAL_ entries", 
+                            "infoEmpty": "No entries available",   
+                            "infoFiltered": "(filtered from _MAX_ total entries)",  
+                            "zeroRecords": "No matching customer is  found",  
+                        }
+                    });
+
+                    // Handle form submission for generating QR codes
                     $('#appointment-form').on('submit', function(e) {
                         e.preventDefault();
 
@@ -174,21 +190,7 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
                             try {
                                 var data = JSON.parse(response);
                                 if (data.success) {
-                                    var newRow = `
-                                        <tr id="appointment_${customerId}">
-                                            <td>${customerId}</td>
-                                            <td>${customerName}</td>
-                                            <td>${customerEmail}</td>
-                                            <td id="appointment-date-${customerId}">${appointmentDate}</td>
-                                            <td><img src="${data.qr_code}" alt="QR Code" style="width: 60px;"></td>
-                                            <td>
-                                                <button class="btn btn-success send-qr" data-id="${customerId}" data-name="${customerName}" data-email="${customerEmail}" data-qr="${data.qr_code}">Send QR</button>
-                                                <button class="btn btn-info download-qr" data-id="${customerId}" data-qr="${data.qr_code}">Download QR</button>
-                                                <button class="btn btn-warning update-appointment" data-id="${customerId}" data-name="${customerName}" data-email="${customerEmail}" data-qr="${data.qr_code}" data-date="${appointmentDate}">Update</button>
-                                            </td>
-                                        </tr>
-                                    `;
-                                    $('#appointment-table tbody').append(newRow);
+                                    location.reload(); // Reload the page to reflect the new appointment
                                 } else {
                                     alert("Error: " + data.message);
                                 }
@@ -199,7 +201,33 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
                         });
                     });
 
-                    // Send QR Button Click
+                    // Handle deleting appointment
+                        $(document).on('click', '.delete-appointment', function() {
+                            var customerId = $(this).data("id");
+
+                            if (confirm('Are you sure you want to delete this appointment?')) {
+                                $.post(ajaxurl, {
+                                    action: "delete_appointment",
+                                    customer_id: customerId
+                                }, function(response) {
+                                    try {
+                                        var data = JSON.parse(response);
+                                        if (data.success) {
+                                            $('#appointment_' + customerId).remove(); // Remove the row from the table
+                                            alert(data.message); // Show success message
+                                        } else {
+                                            alert("Error: " + data.message); // Show error message
+                                        }
+                                    } catch (error) {
+                                        alert("Invalid response from server.");
+                                        console.error("Error:", error);
+                                    }
+                                });
+                            }
+                        });
+        
+
+                    // Handle sending QR codes
                     $(document).on('click', '.send-qr', function() {
                         var id = $(this).data("id");
                         var name = $(this).data("name");
@@ -227,7 +255,7 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
                         });
                     });
 
-                    // Download QR Button Click
+                    // Handle downloading QR codes
                     $(document).on('click', '.download-qr', function() {
                         var qr_code_url = $(this).data("qr");
                         var a = document.createElement('a');
@@ -236,7 +264,7 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
                         a.click();
                     });
 
-                    // Update Appointment Button Click
+                    // Handle updating appointments
                     $(document).on('click', '.update-appointment', function() {
                         var customerId = $(this).data("id");
                         var customerName = $(this).data("name");
@@ -244,16 +272,16 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
                         var currentDate = $(this).data("date");
                         var qrCodeUrl = $(this).data("qr");
 
-                        // Populate the update form with the current details
+                        // Populate the form with the selected appointment's details
                         $('#customer').val(customerId).trigger('change');
                         $('#appointment_date').val(currentDate);
 
-                        // Show a button for updating the appointment
+                        // Show an update button
                         $('#appointment-form').append(`
                             <button type="button" id="update-appointment-btn" class="btn btn-warning">Update Appointment</button>
                         `);
 
-                        // When the Update Appointment button is clicked
+                        // Handle the update button click
                         $('#update-appointment-btn').on('click', function(e) {
                             e.preventDefault();
 
@@ -275,12 +303,7 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
                                 try {
                                     var data = JSON.parse(response);
                                     if (data.success) {
-                                        // Update the table row with new appointment date and QR code
-                                        $('#appointment-date-' + customerId).text(updatedDate);
-                                        var updatedQRUrl = data.qr_code;
-                                        $('#appointment_' + customerId + ' img').attr('src', updatedQRUrl);
-                                        alert("Appointment updated successfully!");
-                                        $('#update-appointment-btn').remove();
+                                        location.reload(); // Reload the page to reflect the updated appointment
                                     } else {
                                         alert("Error: " + data.message);
                                     }
@@ -427,9 +450,9 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
 
             // Send Email with QR code
             $subject = "Your Appointment QR Code";
-            $message = "Dear $name,<br><br>Here is your appointment QR code:<br><br>";
+            $message = "Dear $name,<br><br>Your appointment has been scheduled. To view the details, please scan the QR code below:<br><br>";
             $message .= "<img src='$qr_code_url' alt='QR Code'><br><br>";
-            $message .= "<a href='$qr_code_url' target='_blank'>View QR Code</a> <br><br> Thank You For Working With Us.";
+            $message .= "<a href='$qr_code_url' target='_blank'>View QR Code</a> <br><br> If you have any questions, feel free to reach out.<br><br><br> Best regards,";
             $headers = array('Content-Type: text/html; charset=UTF-8');
 
             if (wp_mail($email, $subject, $message, $headers)) {
@@ -463,6 +486,46 @@ if (!class_exists('Woo_Nehabi_Appointment')) {
                 wp_die();
             }
         }
+
+        // Delete Appointment
+        public function delete_appointment()
+        {
+            if (!isset($_POST['customer_id'])) {
+                echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+                wp_die();
+            }
+        
+            global $wpdb;
+            $customer_id = intval($_POST['customer_id']);
+        
+            // Retrieve the QR code URL from the database before deleting the record
+            $table_name = $wpdb->prefix . 'appointments';
+            $appointment = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_name} WHERE customer_id = %d", $customer_id));
+        
+            if ($appointment) {
+                // Delete the QR code file from the server
+                $qr_code_path = ABSPATH . str_replace(home_url(), '', $appointment->qr_code_url);
+                
+                if (file_exists($qr_code_path)) {
+                    unlink($qr_code_path);  // Delete the QR code file from the server
+                }
+        
+                // Now delete the appointment from the database
+                $result = $wpdb->delete($table_name, ['customer_id' => $customer_id], ['%d']);
+        
+                if ($result !== false) {
+                    echo json_encode(['success' => true, 'message' => 'Appointment and QR code deleted successfully!']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Failed to delete appointment']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Appointment not found']);
+            }
+        
+            wp_die();
+        }
+        
+
     }
 
     //new Woo_Nehabi_Appointment();

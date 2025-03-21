@@ -9,7 +9,7 @@
 * Requires PHP: 7.5
 * Author: Ashewa Technology
 * Author URI: https://ashewatechnology.com
-* Text Domain: nehabi-homes
+* Text Domain: woo-nehabi
 * Domain Path: /languages
 */
 
@@ -27,7 +27,9 @@ if( !class_exists( 'Woo_Nehabi' ) ){
            
             $this->define_constants(); 
 
-         
+            require_once dirname( __FILE__ ) . '/inc/class-tgm-plugin-activation.php';
+            require_once dirname( __FILE__ ) . '/inc/required-plugins.php';
+
             require_once( WOO_NEHABI_PATH . 'woopostype/class.woo-nehabi-cpt.php' );
             $woo_nehabi = New Woo_Nehabi_Post_Type();
  
@@ -46,6 +48,13 @@ if( !class_exists( 'Woo_Nehabi' ) ){
             wp_register_script( 'bootstrap-js', WOO_NEHABI_URL. 'inc/bootstrap.min.js', array('jquery'), '4.3.1', true );
             wp_register_style( 'bootstrap-css', WOO_NEHABI_URL. 'inc/bootstrap.min.css', array(), '4.3.1', 'all' );
             wp_register_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
+            wp_register_style('datatables-css', 'https://cdn.datatables.net/1.10.24/css/jquery.dataTables.css');
+            wp_register_script('datatables-js', 'https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js', array('jquery'), null, true);
+            wp_register_script( 'jszip', 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js', array('jquery'), null, true );
+            wp_register_script( 'pdfmake', 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js', array('jquery'), null, true );
+            wp_register_script( 'vfs_fonts', 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js', array('jquery'), null, true );
+
+    // Enqueue a custom JS file to initialize DataTables (optional)
         }
 
        
@@ -73,8 +82,6 @@ if( !class_exists( 'Woo_Nehabi' ) ){
             }
 
         
-
-          
         public function define_constants(){
              
             define ( 'WOO_NEHABI_PATH', plugin_dir_path( __FILE__ ) );
